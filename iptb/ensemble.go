@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/ipfs/iptb/testbed"
 	testbedi "github.com/ipfs/iptb/testbed/interfaces"
@@ -110,6 +111,7 @@ func (te *TestEnsemble) Destroy() {
 		}(n)
 	}
 	wg.Wait()
+	time.Sleep(100 * time.Millisecond)
 
 	err = os.RemoveAll(te.testbed.Dir())
 	if err != nil {
