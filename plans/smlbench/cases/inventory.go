@@ -7,7 +7,6 @@ var TestCases = []smlbench.SmallBenchmarksTestCase{
 	&simpleAddTC{},                 // 0
 	&simpleAddTC{1024},             // 1kb
 	&simpleAddTC{64 * 1024},        // 64kb
-	/*
 	&simpleAddTC{256 * 1024},       // 256kb
 	&simpleAddTC{512 * 1024},       // 512kb
 	&simpleAddTC{1024 * 1024},      // 1mb
@@ -15,6 +14,7 @@ var TestCases = []smlbench.SmallBenchmarksTestCase{
 	&simpleAddTC{5 * 1024 * 1024},  // 5mb
 	&simpleAddTC{10 * 1024 * 1024}, // 10mb
 
+	/*
 	&simpleAddGetTC{},                 // 0
 	&simpleAddGetTC{1024},             // 1kb
 	&simpleAddGetTC{64 * 1024},        // 64kb
