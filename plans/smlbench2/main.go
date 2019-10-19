@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	test "github.com/ipfs/testground/plans/smlbench2/test"
 	utils "github.com/ipfs/testground/plans/smlbench2/utils"
 	iptb "github.com/ipfs/testground/sdk/iptb"
 	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/ipfs/testground/sdk/sync"
 )
 
 // Inventory of Tests
@@ -34,6 +36,10 @@ func main() {
 	}
 
 	testCases := testCasesSet[runenv.TestCaseSeq]
+
+	watcher, writer := sync.MustWatcherWriter(runenv)
+        defer watcher.Close()
+	fmt.Printf("Jim1 writer %v\n", writer)
 
 	for _, tc := range testCases {
 		ctx := context.Background()
