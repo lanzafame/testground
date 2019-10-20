@@ -24,6 +24,16 @@ func main() {
 		panic("test case sequence number not set")
 	}
 
+	/*
+	timeout := func() time.Duration {
+                if t, ok := runenv.IntParam("timeout_secs"); !ok {
+                        return 30 * time.Second
+                } else {
+                        return time.Duration(t) * time.Second
+                }
+        }()
+	*/
+
 	watcher, writer := sync.MustWatcherWriter(runenv)
         defer watcher.Close()
 
@@ -58,11 +68,54 @@ func main() {
 
 	client := localNode.Client()
 
+	added := sync.State("added")
+
 	switch {
-	case seq == 1:
-		runAdder(runenv, ensemble, client, sizeBytes)
-	case seq == 2:
-		// runGetter(client)
+	case seq == 1: // adder
+		adder := client
+		fmt.Println("adder")
+
+		// generate a random file of the designated size.
+		file := utils.TempRandFile(runenv, ensemble.TempDir(), sizeBytes)
+		defer os.Remove(file.Name())
+
+		tstarted := time.Now()
+		cid, err := adder.Add(file)
+		if err != nil {
+			runenv.Abort(err)
+			return
+		}
+		fmt.Println("cid", cid)
+
+		runenv.EmitMetric(utils.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
+
+		/*
+		ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
+		defer ctxCancel()
+		*/
+
+		fmt.Println("Sleeping...")
+		time.Sleep(5 * time.Second)
+
+		// Signal we're done on the added state.
+		_, err = writer.SignalEntry(added)
+		if err != nil {
+			runenv.Abort(err)
+		}
+		fmt.Println("Done add")
+	case seq == 2: // getter
+		getter := client
+		fmt.Println("getter")
+
+		// Set a state barrier.
+		addedCh := watcher.Barrier(ctx, added, 1)
+
+		// Wait until added state is signalled.
+		if err := <-addedCh; err != nil {
+			panic(err)
+		}
+		fmt.Println("Done add")
+		fmt.Println("Jim getter", getter)
 	default:
 		runenv.Abort(fmt.Errorf("Unexpected seq: %v", seq))
 	}
@@ -71,21 +124,6 @@ func main() {
 }
 
 func runAdder(runenv *runtime.RunEnv, ensemble *iptb.TestEnsemble, adder *shell.Shell, size int64) {
-	fmt.Println("adder")
-
-	// generate a random file of the designated size.
-        file := utils.TempRandFile(runenv, ensemble.TempDir(), size)
-        defer os.Remove(file.Name())
-
-        tstarted := time.Now()
-        cid, err := adder.Add(file)
-        if err != nil {
-                runenv.Abort(err)
-                return
-        }
-	fmt.Println("cid", cid)
-
-        runenv.EmitMetric(utils.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
 }
 
 /*
