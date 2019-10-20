@@ -12,6 +12,7 @@ import (
 	"github.com/ipfs/testground/sdk/sync"
 	"github.com/libp2p/go-libp2p-core/peer"
 	shell "github.com/ipfs/go-ipfs-api"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 const (
@@ -50,13 +51,26 @@ func main() {
 	}
 	fmt.Println("Jim peerID", peerID)
 
+	swarmAddrs, err := localNode.SwarmAddrs()
+	if err != nil {
+		runenv.Abort(err)
+	}
+	fmt.Println("Jim swarmAddrs", swarmAddrs)
+
 	ID, err := peer.IDB58Decode(peerID)
 	if err != nil {
 		runenv.Abort(err)
 	}
-	addrInfo := &peer.AddrInfo{
-		ID: ID,
+
+	addrs := make([]ma.Multiaddr, len(swarmAddrs))
+	for i, addr := range swarmAddrs {
+		multiAddr, err := ma.NewMultiaddr(addr)
+		if err != nil {
+			runenv.Abort(err)
+		}
+		addrs[i] = multiAddr
 	}
+	addrInfo := &peer.AddrInfo{ID, addrs}
 
 	seq, err := writer.Write(sync.PeerSubtree, addrInfo)
 	if err != nil {

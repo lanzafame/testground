@@ -10,6 +10,7 @@ require (
 	github.com/ipfs/testground/sdk/sync v0.0.0-20191017072543-376444a0dd33
 	github.com/libp2p/go-libp2p v0.4.0
 	github.com/libp2p/go-libp2p-core v0.2.3
+	github.com/multiformats/go-multiaddr v0.1.1
 )
 
 replace (
