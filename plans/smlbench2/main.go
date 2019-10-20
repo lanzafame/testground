@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"time"
 
 	utils "github.com/ipfs/testground/plans/smlbench2/utils"
@@ -11,13 +12,23 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 	"github.com/libp2p/go-libp2p-core/peer"
-	shell "github.com/ipfs/go-ipfs-api"
+	// shell "github.com/ipfs/go-ipfs-api"
 	ma "github.com/multiformats/go-multiaddr"
+	"github.com/ipfs/go-cid"
 )
 
 const (
-	sizeBytes = 10 * 1024 * 1024 // 10mb
+	// sizeBytes = 10 * 1024 * 1024 // 10mb
+	sizeBytes = 100 * 1024 * 1024 // 100mb
 )
+
+var cidSubtree = &sync.Subtree{
+        GroupKey:    "cid",
+        PayloadType: reflect.TypeOf(&cid.Cid{}),
+        KeyFunc: func(val interface{}) string {
+                return "cid"
+        },
+}
 
 func main() {
 	runenv := runtime.CurrentRunEnv()
@@ -94,14 +105,25 @@ func main() {
 		defer os.Remove(file.Name())
 
 		tstarted := time.Now()
-		cid, err := adder.Add(file)
+		hash, err := adder.Add(file)
 		if err != nil {
 			runenv.Abort(err)
 			return
 		}
-		fmt.Println("cid", cid)
+		fmt.Println("cid", hash)
+
+		c, err := cid.Parse(hash)
+		if err != nil {
+			runenv.Abort(err)
+			return
+		}
 
 		runenv.EmitMetric(utils.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
+
+		_, err = writer.Write(cidSubtree, &c)
+		if err != nil {
+			runenv.Abort(err)
+		}
 
 		// Signal we're done on the added state.
 		_, err = writer.SignalEntry(added)
@@ -170,7 +192,30 @@ func main() {
 			panic(err)
 		}
 		fmt.Println("State: added")
-		fmt.Println("Jim getter", getter)
+
+		cidCh := make(chan *cid.Cid, 0)
+		cancel, err = watcher.Subscribe(cidSubtree, sync.TypedChan(cidCh))
+		if err != nil {
+			runenv.Abort(err)
+		}
+		defer cancel()
+		select {
+		case c := <-cidCh:
+			fmt.Println("Jim cid", c)
+			cancel()
+			// Get the content from the adder node
+			tstarted := time.Now()
+			err = getter.Get(c.String(), ensemble.TempDir())
+			if err != nil {
+				runenv.Abort(err)
+				return
+			}
+			runenv.EmitMetric(utils.MetricTimeToGet, float64(time.Now().Sub(tstarted)/time.Millisecond))
+		case <-time.After(timeout):
+			// TODO need a way to fail a distributed test immediately. No point
+			// making it run elsewhere beyond this point.
+			panic(fmt.Sprintf("no cid in %d seconds", timeout))
+		}
 
 		// Signal we're reached the received state.
 		_, err = writer.SignalEntry(received)
@@ -185,11 +230,3 @@ func main() {
 	ensemble.Destroy()
 }
 
-func runAdder(runenv *runtime.RunEnv, ensemble *iptb.TestEnsemble, adder *shell.Shell, size int64) {
-}
-
-/*
-func runGetter(getter *shell.Shell) {
-	fmt.Println("getter")
-}
-*/
