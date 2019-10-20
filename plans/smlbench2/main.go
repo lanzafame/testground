@@ -141,13 +141,18 @@ func main() {
 					continue
 				}
 				fmt.Println("Jim connect2", ai)
-				/*
-				ctx, cancel := context.WithTimeout(context.Background(), timeout)
-				err := h.Connect(ctx, *ai)
+
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+
+				tstarted := time.Now()
+				err = getter.SwarmConnect(ctx, ai.Addrs[0].String())
 				if err != nil {
-					panic(err)
+					runenv.Abort(err)
+					return
 				}
-				*/
+
+				runenv.EmitMetric(utils.MetricTimeToConnect, float64(time.Now().Sub(tstarted)/time.Millisecond))
 				cancel()
 
 			case <-time.After(timeout):
