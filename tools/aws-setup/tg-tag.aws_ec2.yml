@@ -5,6 +5,8 @@ keyed_groups:
   - key: tags.TG
     prefix: tag_TG_
     separator: ""
+hostnames:
+  - private-ip-address
 compose:
   # set the ansible_host variable to connect with the private IP address without changing the hostname
   ansible_host: private_ip_address

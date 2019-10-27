@@ -8,4 +8,4 @@ if [ -z "$TAG" ]; then
 	exit 1
 fi
 
-ansible-playbook -i tg-tag.aws_ec2.yml get-hostnames.yml --extra-vars "tg_hosts=tag_TG_$TAG"
+ansible-playbook -i tg-tag.aws_ec2.yml setup-redis.yml --extra-vars "tg_hosts=tag_TG_$TAG"

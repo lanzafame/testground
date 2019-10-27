@@ -1,8 +1,0 @@
----
-- hosts: "{{ tg_hosts }}"
-  remote_user: ubuntu
-  tasks:
-    - name: get hostname
-      shell: hostname
-      register: date
-    - debug: var=date.stdout

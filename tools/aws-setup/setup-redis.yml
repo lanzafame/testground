@@ -1,0 +1,9 @@
+---
+- hosts: "{{ tg_hosts }}[0]"
+  become: yes
+  tasks:
+    - name: ensure redis is running
+      systemd:
+        name: redis-server
+        enabled: yes
+        state: started
