@@ -1,5 +1,5 @@
 ---
-- hosts: "{{ tg_hosts }}[-1]"
+- hosts: "{{ tg_hosts }}"
   remote_user: ubuntu
   gather_facts: no
   tasks:

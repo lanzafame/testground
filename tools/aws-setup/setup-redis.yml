@@ -1,5 +1,5 @@
 ---
-- hosts: "{{ tg_hosts }}[0]"
+- hosts: localhost
   become: yes
   tasks:
     - name: ensure redis is running
