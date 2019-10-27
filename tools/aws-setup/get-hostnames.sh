@@ -8,5 +8,4 @@ if [ -z "$TAG" ]; then
 	exit 1
 fi
 
-ansible-inventory -i tg-tag.aws_ec2.yml  --graph tag_TG_$TAG
-
+ansible-playbook -i tg-tag.aws_ec2.yml hostnames.yml --extra-vars "tg_hosts=tag_TG_$TAG"
