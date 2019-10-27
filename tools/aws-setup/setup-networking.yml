@@ -1,0 +1,26 @@
+---
+- hosts: "{{ tg_hosts }}"
+  become: yes
+  gather_facts: yes
+  tasks:
+    - name: Dump all facts
+      debug: var=ansible_facts
+    - name: Just the IPs
+      debug: var=ansible_facts.all_ipv4_addresses
+    - name: give me permutations of sets of two
+      debug:
+        msg: "{{ [1,2,3] | permutations(2) | list }}"
+    - name: indexed ip addresses
+      debug:
+        msg: "{{ item }} with index {{ idx }}"
+      register: idx_ip
+      loop: "{{ ansible_facts.all_ipv4_addresses }}"
+      loop_control:
+        index_var: idx
+    - name: Dump indexed IPs
+      debug: var=idx_ip.results
+    - name: transform results
+      set_fact:
+              idx_ip_dict: "{{ idx_ip.results | items2dict(key_name = 'idx', value_name = 'item') }}"
+    - name: Dump dict
+      debug: var=idx_ip_dict
