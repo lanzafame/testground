@@ -1,0 +1,9 @@
+---
+- hosts: "{{ tg_hosts }}"
+  become: yes
+  gather_facts: no
+  tasks:
+    - name: setup ecr
+      shell: "$(aws ecr get-login --no-include-email --region {{ region }})"
+      register: ecr
+    - debug: var=ecr.stdout
