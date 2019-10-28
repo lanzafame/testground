@@ -2,25 +2,60 @@
 - hosts: "{{ tg_hosts }}"
   become: yes
   gather_facts: yes
+  vars:
+    ip_template:
+      key: "{{ item.idx }}"
+      value:
+        network: "10.{{ item.idx }}.0.0/16"
+        private_ip: "{{ item.item }}"
   tasks:
+    - name: Node IP
+      debug: var=ansible_facts.default_ipv4.address
     - name: Dump all facts
       debug: var=ansible_facts
-    - name: Just the IPs
-      debug: var=ansible_facts.all_ipv4_addresses
+    - name: Get hosts
+      debug: var=ansible_play_hosts
     - name: give me permutations of sets of two
       debug:
         msg: "{{ [1,2,3] | permutations(2) | list }}"
-    - name: indexed ip addresses
+    - name: Indexed ip addresses
       debug:
         msg: "{{ item }} with index {{ idx }}"
       register: idx_ip
-      loop: "{{ ansible_facts.all_ipv4_addresses }}"
+      loop: "{{ ansible_play_hosts }}"
       loop_control:
         index_var: idx
     - name: Dump indexed IPs
       debug: var=idx_ip.results
-    - name: transform results
+    - name: Transform indexed IPs into a dict
       set_fact:
-              idx_ip_dict: "{{ idx_ip.results | items2dict(key_name = 'idx', value_name = 'item') }}"
-    - name: Dump dict
-      debug: var=idx_ip_dict
+        idx_ip_dict: "{{ idx_ip.results | items2dict(key_name = 'idx', value_name = 'item') }}"
+    - name: Generate network ranges
+      set_fact:
+        node: "{{ ip_template }}"
+      loop: "{{ idx_ip.results }}"
+      register: networks
+    - name: Dump networks
+      debug: var=networks
+    - name: Transform indexed networks into a dict
+      set_fact:
+        networks_dict: "{{ networks.results | map(attribute='ansible_facts.node') | list | items2dict }}"
+    - name: Dump networks dist
+      debug: var=networks_dict
+    - name: Match host
+      debug:
+        msg: "{{ item }}: {{ networks_dict[item].private_ip }}"
+      loop: "{{ networks_dict.keys() | list }}"
+      when: ansible_facts.default_ipv4.address == networks_dict[item].private_ip
+      register: matched_hosts
+    - name: Dump matched_hosts
+      debug:
+        msg: "{{ (matched_hosts.results | selectattr('skipped', 'undefined') | list | first).item }}"
+    - name: Set matched_idx
+      set_fact:
+        matched_idx: "{{ (matched_hosts.results | selectattr('skipped', 'undefined') | list | first).item }}"
+    - name: Dump matched_idx
+      debug: var=matched_idx
+    - name: Dump matched network
+      debug: var=networks_dict[matched_idx]
+
