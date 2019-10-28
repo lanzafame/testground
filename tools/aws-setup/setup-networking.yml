@@ -58,4 +58,6 @@
       debug: var=matched_idx
     - name: Dump matched network
       debug: var=networks_dict[matched_idx]
-
+    - name: Create docker network
+      docker_network:
+        name: testground
