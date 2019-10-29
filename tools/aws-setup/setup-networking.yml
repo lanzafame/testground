@@ -63,16 +63,31 @@
         name: testground
         ipam_config:
           - subnet: "{{ networks_dict[matched_idx].network }}"
+    - name: Get list of GRE tunnels if they exist
+      shell: ip tunnel | sed -n 's/\(tun[0-9]*\):.*/\1/p'
+      register: ip_tunnels_raw
+    - name: Save ip_tunnels
+      set_fact:
+        ip_tunnels: "{{ ip_tunnels_raw.stdout_lines }}"
+    - name: Dump ip_tunnels
+      debug: var=ip_tunnels
+    - name: Drop ip_tunnels
+      command: ip tunnel del "{{ item }}"
+      loop: "{{ ip_tunnels }}"
     - name: Create GRE tunnel on first node
-      shell: ip tunnel add tun1 mode gre remote {{ networks_dict["1"].private_ip }} local {{ networks_dict["0"].private_ip }} ttl 255 && 
-             ip addr add 10.0.254.2 dev tun1
+      shell: ip tunnel add tun1 mode gre remote {{ networks_dict["1"].private_ip }} local {{ networks_dict["0"].private_ip }} ttl 255 &&
+             ip link set tun1 up &&
+             ip addr add 10.0.254.2 dev tun1 &&
+             ip route add 10.1.0.0/16 dev tun1
       when: matched_idx == "0"
       register: debug_out
     - name: Dump debug_out
       debug: var=debug_out
     - name: Create GRE tunnel on second node
-      shell: ip tunnel add tun0 mode gre remote {{ networks_dict["0"].private_ip }} local {{ networks_dict["1"].private_ip }} ttl 255 && 
-             ip addr add 10.1.254.1 dev tun0
+      shell: ip tunnel add tun0 mode gre remote {{ networks_dict["0"].private_ip }} local {{ networks_dict["1"].private_ip }} ttl 255 &&
+             ip link set tun0 up &&
+             ip addr add 10.1.254.1 dev tun0 &&
+             ip route add 10.0.0.0/16 dev tun0
       when: matched_idx == "1"
       register: debug_out
     - name: Dump debug_out
