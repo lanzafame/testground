@@ -92,3 +92,31 @@
       register: debug_out
     - name: Dump debug_out
       debug: var=debug_out
+    - name: Turn off NAT between testground networks
+      iptables:
+        table: nat
+        chain: POSTROUTING
+        source: 10.0.0.0/8
+        destination: 10.0.0.0/8
+        jump: ACCEPT
+        action: insert
+        rule_num: "1"
+      become: yes
+    - name: Accept packets from tun1 on first node
+      iptables:
+        chain: FORWARD
+        in_interface: tun1
+        jump: ACCEPT
+        action: insert
+        rule_num: "1"
+      become: yes
+      when: matched_idx == "0"
+    - name: Accept packets from tun0 on second node
+      iptables:
+        chain: FORWARD
+        in_interface: tun0
+        jump: ACCEPT
+        action: insert
+        rule_num: "1"
+      become: yes
+      when: matched_idx == "1"
