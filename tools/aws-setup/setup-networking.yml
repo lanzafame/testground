@@ -48,18 +48,18 @@
     - name: Dump matched_hosts
       debug:
         msg: "{{ (matched_hosts.results | selectattr('skipped', 'undefined') | list | first).item }}"
-    - name: Set matched_idx
+    - name: Set host_idx
       set_fact:
-        matched_idx: "{{ (matched_hosts.results | selectattr('skipped', 'undefined') | list | first).item }}"
-    - name: Dump matched_idx
-      debug: var=matched_idx
+        host_idx: "{{ (matched_hosts.results | selectattr('skipped', 'undefined') | list | first).item }}"
+    - name: Dump host_idx
+      debug: var=host_idx
     - name: Dump matched network
-      debug: var=networks_dict[matched_idx]
+      debug: var=networks_dict[host_idx]
     - name: Create docker network
       docker_network:
         name: testground
         ipam_config:
-          - subnet: "{{ networks_dict[matched_idx].network }}"
+          - subnet: "{{ networks_dict[host_idx].network }}"
     - name: Get list of GRE tunnels if they exist
       shell: ip tunnel | sed -n 's/\(tun[0-9]*\):.*/\1/p'
       register: ip_tunnels_raw
@@ -71,22 +71,32 @@
     - name: Drop ip_tunnels
       command: ip tunnel del "{{ item }}"
       loop: "{{ ip_tunnels }}"
-    - name: Create GRE tunnel on first node
-      shell: ip tunnel add tun1 mode gre remote {{ networks_dict["1"].private_ip }} local {{ networks_dict["0"].private_ip }} ttl 255 &&
-             ip link set tun1 up &&
-             ip addr add 10.0.254.2 dev tun1 &&
-             ip route add 10.1.0.0/16 dev tun1
-      when: matched_idx == "0"
+    - name: Create GRE tunnels to other nodes
+      shell: ip tunnel add tun{{ item }} mode gre remote {{ networks_dict[item].private_ip }} local {{ networks_dict[host_idx].private_ip }} ttl 255
       register: debug_out
+      loop: "{{ networks_dict.keys() | list }}"
+      when: item != host_idx
     - name: Dump debug_out
       debug: var=debug_out
-    - name: Create GRE tunnel on second node
-      shell: ip tunnel add tun0 mode gre remote {{ networks_dict["0"].private_ip }} local {{ networks_dict["1"].private_ip }} ttl 255 &&
-             ip link set tun0 up &&
-             ip addr add 10.1.254.1 dev tun0 &&
-             ip route add 10.0.0.0/16 dev tun0
-      when: matched_idx == "1"
+    - name: Set tunnel interfaces to up
+      shell: ip link set tun{{ item }} up
       register: debug_out
+      loop: "{{ networks_dict.keys() | list }}"
+      when: item != host_idx
+    - name: Dump debug_out
+      debug: var=debug_out
+    - name: Add local IP addresses for each tunnel
+      shell: ip addr add 10.{{ host_idx }}.254.{{ item|int + 1 }} dev tun{{ item }}
+      register: debug_out
+      loop: "{{ networks_dict.keys() | list }}"
+      when: item != host_idx
+    - name: Dump debug_out
+      debug: var=debug_out
+    - name: Add routes for each tunnel
+      shell: ip route add {{ networks_dict[item].network }} dev tun{{ item }}
+      register: debug_out
+      loop: "{{ networks_dict.keys() | list }}"
+      when: item != host_idx
     - name: Dump debug_out
       debug: var=debug_out
     - name: Turn off NAT between testground networks
@@ -99,26 +109,13 @@
         action: insert
         rule_num: "1"
       become: yes
-    - name: Accept packets from tun1 on first node
+    - name: Add iptables rules to accept traffic for each tunnel
       iptables:
         chain: FORWARD
-        in_interface: tun1
+        in_interface: tun{{ item }}
         jump: ACCEPT
         action: insert
         rule_num: "1"
       become: yes
-      when: matched_idx == "0"
-    - name: Accept packets from tun0 on second node
-      iptables:
-        chain: FORWARD
-        in_interface: tun0
-        jump: ACCEPT
-        action: insert
-        rule_num: "1"
-      become: yes
-      when: matched_idx == "1"
-    - name: Get number of hosts
-      set_fact:
-        num_hosts: "{{ ansible_play_hosts | length }}"
-    - name: Dump number of hosts
-      debug: var=num_hosts
+      loop: "{{ networks_dict.keys() | list }}"
+      when: item != host_idx
