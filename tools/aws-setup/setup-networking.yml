@@ -15,9 +15,6 @@
       debug: var=ansible_facts
     - name: Get hosts
       debug: var=ansible_play_hosts
-    - name: give me permutations of sets of two
-      debug:
-        msg: "{{ [1,2,3] | permutations(2) | list }}"
     - name: Indexed ip addresses
       debug:
         msg: "{{ item }} with index {{ idx }}"
@@ -120,3 +117,8 @@
         rule_num: "1"
       become: yes
       when: matched_idx == "1"
+    - name: Get number of hosts
+      set_fact:
+        num_hosts: "{{ ansible_play_hosts | length }}"
+    - name: Dump number of hosts
+      debug: var=num_hosts
