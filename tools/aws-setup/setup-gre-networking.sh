@@ -8,4 +8,4 @@ if [ -z "$TAG" ]; then
 	exit 1
 fi
 
-ansible-playbook -i tg-tag.aws_ec2.yml setup-networking.yml --extra-vars "tg_hosts=tag_TG_$TAG" --extra-vars "region=$REGION"
+ansible-playbook -i tg-tag.aws_ec2.yml setup-gre-networking.yml --extra-vars "tg_hosts=tag_TG_$TAG" --extra-vars "region=$REGION"
