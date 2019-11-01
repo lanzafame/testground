@@ -23,6 +23,7 @@ var AllBuilders = []build.Builder{
 var AllRunners = []runner.Runner{
 	&runner.LocalDockerRunner{},
 	&runner.LocalExecutableRunner{},
+	&runner.ClusterSwarmRunner{},
 }
 
 // Engine is the central runtime object of the system. It knows about all test
