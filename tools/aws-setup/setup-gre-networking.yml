@@ -1,0 +1,121 @@
+---
+- hosts: "{{ tg_hosts }}"
+  become: yes
+  gather_facts: yes
+  vars:
+    ip_template:
+      key: "{{ item.idx }}"
+      value:
+        network: "10.{{ item.idx }}.0.0/16"
+        private_ip: "{{ item.item }}"
+  tasks:
+    - name: Node IP
+      debug: var=ansible_facts.default_ipv4.address
+    - name: Dump all facts
+      debug: var=ansible_facts
+    - name: Get hosts
+      debug: var=ansible_play_hosts
+    - name: Indexed ip addresses
+      debug:
+        msg: "{{ item }} with index {{ idx }}"
+      register: idx_ip
+      loop: "{{ ansible_play_hosts }}"
+      loop_control:
+        index_var: idx
+    - name: Dump indexed IPs
+      debug: var=idx_ip.results
+    - name: Transform indexed IPs into a dict
+      set_fact:
+        idx_ip_dict: "{{ idx_ip.results | items2dict(key_name = 'idx', value_name = 'item') }}"
+    - name: Generate network ranges
+      set_fact:
+        node: "{{ ip_template }}"
+      loop: "{{ idx_ip.results }}"
+      register: networks
+    - name: Dump networks
+      debug: var=networks
+    - name: Transform indexed networks into a dict
+      set_fact:
+        networks_dict: "{{ networks.results | map(attribute='ansible_facts.node') | list | items2dict }}"
+    - name: Dump networks dist
+      debug: var=networks_dict
+    - name: Match host
+      debug:
+        msg: "{{ item }}: {{ networks_dict[item].private_ip }}"
+      loop: "{{ networks_dict.keys() | list }}"
+      when: ansible_facts.default_ipv4.address == networks_dict[item].private_ip
+      register: matched_hosts
+    - name: Dump matched_hosts
+      debug:
+        msg: "{{ (matched_hosts.results | selectattr('skipped', 'undefined') | list | first).item }}"
+    - name: Set host_idx
+      set_fact:
+        host_idx: "{{ (matched_hosts.results | selectattr('skipped', 'undefined') | list | first).item }}"
+    - name: Dump host_idx
+      debug: var=host_idx
+    - name: Dump matched network
+      debug: var=networks_dict[host_idx]
+    - name: Create docker network
+      docker_network:
+        name: testground
+        ipam_config:
+          - subnet: "{{ networks_dict[host_idx].network }}"
+    - name: Get list of GRE tunnels if they exist
+      shell: ip tunnel | sed -n 's/\(tun[0-9]*\):.*/\1/p'
+      register: ip_tunnels_raw
+    - name: Save ip_tunnels
+      set_fact:
+        ip_tunnels: "{{ ip_tunnels_raw.stdout_lines }}"
+    - name: Dump ip_tunnels
+      debug: var=ip_tunnels
+    - name: Drop ip_tunnels
+      command: ip tunnel del "{{ item }}"
+      loop: "{{ ip_tunnels }}"
+    - name: Create GRE tunnels to other nodes
+      shell: ip tunnel add tun{{ item }} mode gre remote {{ networks_dict[item].private_ip }} local {{ networks_dict[host_idx].private_ip }} ttl 255
+      register: debug_out
+      loop: "{{ networks_dict.keys() | list }}"
+      when: item != host_idx
+    - name: Dump debug_out
+      debug: var=debug_out
+    - name: Set tunnel interfaces to up
+      shell: ip link set tun{{ item }} up
+      register: debug_out
+      loop: "{{ networks_dict.keys() | list }}"
+      when: item != host_idx
+    - name: Dump debug_out
+      debug: var=debug_out
+    - name: Add local IP addresses for each tunnel
+      shell: ip addr add 10.{{ host_idx }}.254.{{ item|int + 1 }} dev tun{{ item }}
+      register: debug_out
+      loop: "{{ networks_dict.keys() | list }}"
+      when: item != host_idx
+    - name: Dump debug_out
+      debug: var=debug_out
+    - name: Add routes for each tunnel
+      shell: ip route add {{ networks_dict[item].network }} dev tun{{ item }}
+      register: debug_out
+      loop: "{{ networks_dict.keys() | list }}"
+      when: item != host_idx
+    - name: Dump debug_out
+      debug: var=debug_out
+    - name: Turn off NAT between testground networks
+      iptables:
+        table: nat
+        chain: POSTROUTING
+        source: 10.0.0.0/8
+        destination: 10.0.0.0/8
+        jump: ACCEPT
+        action: insert
+        rule_num: "1"
+      become: yes
+    - name: Add iptables rules to accept traffic for each tunnel
+      iptables:
+        chain: FORWARD
+        in_interface: tun{{ item }}
+        jump: ACCEPT
+        action: insert
+        rule_num: "1"
+      become: yes
+      loop: "{{ networks_dict.keys() | list }}"
+      when: item != host_idx
