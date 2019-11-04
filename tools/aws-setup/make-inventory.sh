@@ -8,4 +8,4 @@ if [ -z "$TAG" ]; then
 	exit 1
 fi
 
-ansible-playbook -i inventory.ini setup-docker-swarm.yml --extra-vars "region=$REGION"
+ansible-playbook -i tg-tag.aws_ec2.yml make-inventory.yml --extra-vars "tg_hosts=tag_TG_$TAG"

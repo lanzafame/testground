@@ -1,5 +1,5 @@
 ---
-- hosts: "{{ tg_hosts }}"
+- hosts: all
   become: yes
   gather_facts: yes
   tasks:
@@ -7,7 +7,7 @@
       debug: var=ansible_facts.default_ipv4.address
     - name: Get hosts
       debug: var=ansible_play_hosts
-- hosts: "{{ tg_hosts }}[0]"
+- hosts: all[0]
   become: yes
   gather_facts: yes
   tasks:
@@ -31,7 +31,7 @@
         driver: overlay
         ipam_config:
           - subnet: 10.99.0.0/16
-- hosts: "{{ tg_hosts }}[1:]"
+- hosts: all[1:]
   become: yes
   gather_facts: yes
   tasks:
@@ -39,7 +39,7 @@
       debug: var=ansible_play_hosts
     - name: Identify manager node
       set_fact:
-        manager: "{{ groups[tg_hosts][0] }}"
+        manager: "{{ groups['all'][0] }}"
     - name: Dump manager
       debug: var=manager
     - name: Fetch join_token
