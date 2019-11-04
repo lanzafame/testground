@@ -2,19 +2,14 @@ package main
 
 import (
 	"context"
+	"os"
+	"strconv"
 
 	test "github.com/ipfs/testground/plans/smlbench/test"
 	utils "github.com/ipfs/testground/plans/smlbench/utils"
 	iptb "github.com/ipfs/testground/sdk/iptb"
 	"github.com/ipfs/testground/sdk/runtime"
 )
-
-/*
-var testCases = []func(*runtime.RunEnv){
-	test.SimpleAdd,
-	test.SimpleAddGet,
-}
-*/
 
 // Inventory of Tests
 var testCasesSet = [][]utils.SmallBenchmarksTestCase{
@@ -42,18 +37,8 @@ var testCasesSet = [][]utils.SmallBenchmarksTestCase{
 	},
 }
 
-// TODO:
-//  Testcase abstraction.
-//  Entrypoint demuxing (TEST_CASE_SEQ).
-//  Pipe stdout to intercept messages.
-//  Temporary directory from environment variable.
-//  Error handling -- right now everything panics on failure.
+// TODO: Error handling -- right now everything panics on failure.
 func main() {
-	// _ = os.Setenv("TEST_PLAN", "smlbenchmarks")
-	// _ = os.Setenv("TEST_BRANCH", "master")
-	// _ = os.Setenv("TEST_TAG", "")
-	// _ = os.Setenv("TEST_RUN", uuid.New().String())
-
 	runenv := runtime.CurrentRunEnv()
 	if runenv.TestCaseSeq < 0 {
 		panic("test case sequence number not set")
@@ -61,8 +46,12 @@ func main() {
 
 	testCases := testCasesSet[runenv.TestCaseSeq]
 
-	for _, tc := range testCases {
+	for i, tc := range testCases {
+		_ = os.Setenv("TEST_CASE", tc.Name())
+		_ = os.Setenv("TEST_CASE_SEQ", strconv.Itoa(i))
+
 		ctx := context.Background()
+		// ctx, _ := context.WithCancel(context.Background())
 
 		spec := iptb.NewTestEnsembleSpec()
 		tc.Configure(runenv, spec)
